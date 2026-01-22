@@ -2,9 +2,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { SongData } from "./types";
 
-export async function fetchLyricsWithGemini(videoUrl: string): Promise<SongData> {
-  // Creating instance here ensures the environment variable is available when needed
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+export async function fetchLyricsWithGemini(videoUrl: string, apiKey: string): Promise<SongData> {
+  if (!apiKey) {
+    throw new Error("API Key is missing. Please provide a valid Gemini API key.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
