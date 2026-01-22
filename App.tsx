@@ -1,10 +1,9 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { fetchLyricsWithGemini } from './geminiService';
-import { SongData, PlayerState, LyricLine } from './types';
+import { SongData, PlayerState } from './types';
 import LyricLineView from './components/LyricLineView';
 
-// Use a light wrapper for YouTube embedding or postMessage
 declare global {
   interface Window {
     onYouTubeIframeAPIReady: () => void;
@@ -19,79 +18,55 @@ const App: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const [error, setError] = useState<string | null>(null);
+  const [isApiReady, setIsApiReady] = useState(false);
 
   const playerRef = useRef<any>(null);
   const timerRef = useRef<number | null>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
 
-  // Initialize YouTube API
+  // Initialize YouTube API safely
   useEffect(() => {
+    if (window.YT && window.YT.Player) {
+      setIsApiReady(true);
+      return;
+    }
+
+    // Register callback before script loads
+    window.onYouTubeIframeAPIReady = () => {
+      setIsApiReady(true);
+    };
+
     const tag = document.createElement('script');
     tag.src = "https://www.youtube.com/iframe_api";
     const firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-
-    window.onYouTubeIframeAPIReady = () => {
-      console.log('YouTube API Ready');
-    };
+    if (firstScriptTag && firstScriptTag.parentNode) {
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    } else {
+      document.head.appendChild(tag);
+    }
   }, []);
 
   const extractVideoId = (url: string) => {
-    const match = url.match(/[?&]v=([^&]+)/);
-    return match ? match[1] : url.split('/').pop();
-  };
-
-  const handleSearch = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!url) return;
-
-    setPlayerState(PlayerState.LOADING);
-    setError(null);
-    setSongData(null);
-    setCurrentTime(0);
-
     try {
-      // 1. Fetch Lyrics from Gemini
-      const data = await fetchLyricsWithGemini(url);
-      setSongData(data);
-
-      // 2. Initialize/Update YouTube Player
-      const videoId = extractVideoId(url);
-      if (playerRef.current) {
-        playerRef.current.loadVideoById(videoId);
-      } else {
-        playerRef.current = new window.YT.Player('youtube-player', {
-          height: '100%',
-          width: '100%',
-          videoId: videoId,
-          playerVars: {
-            autoplay: 1,
-            modestbranding: 1,
-            rel: 0
-          },
-          events: {
-            onStateChange: (event: any) => {
-              if (event.data === window.YT.PlayerState.PLAYING) {
-                startTracking();
-              } else {
-                stopTracking();
-              }
-            }
-          }
-        });
+      const match = url.match(/[?&]v=([^&]+)/);
+      if (match) return match[1];
+      
+      if (url.includes('youtu.be/')) {
+        return url.split('youtu.be/')[1]?.split(/[?#]/)[0];
       }
-      setPlayerState(PlayerState.PLAYING);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'An error occurred while fetching lyrics.');
-      setPlayerState(PlayerState.ERROR);
+      
+      const parts = url.split('/');
+      const lastPart = parts[parts.length - 1];
+      return lastPart?.split(/[?#]/)[0];
+    } catch (e) {
+      return null;
     }
   };
 
   const startTracking = () => {
     if (timerRef.current) return;
     timerRef.current = window.setInterval(() => {
-      if (playerRef.current && playerRef.current.getCurrentTime) {
+      if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
         const time = playerRef.current.getCurrentTime();
         setCurrentTime(time);
       }
@@ -105,7 +80,67 @@ const App: React.FC = () => {
     }
   };
 
-  // Synchronize lyrics scrolling and active state
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!url) return;
+    
+    if (!isApiReady || !window.YT || !window.YT.Player) {
+      setError("YouTube Player is still initializing. Please wait a few seconds.");
+      return;
+    }
+
+    setPlayerState(PlayerState.LOADING);
+    setError(null);
+    setSongData(null);
+    setCurrentTime(0);
+    setActiveLineIndex(-1);
+
+    try {
+      const videoId = extractVideoId(url);
+      if (!videoId) throw new Error("Could not parse a valid Video ID from that URL.");
+
+      // Fetch lyrics via Gemini
+      const data = await fetchLyricsWithGemini(url);
+      setSongData(data);
+
+      if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
+        playerRef.current.loadVideoById(videoId);
+      } else {
+        playerRef.current = new window.YT.Player('youtube-player', {
+          height: '100%',
+          width: '100%',
+          videoId: videoId,
+          playerVars: {
+            autoplay: 1,
+            modestbranding: 1,
+            rel: 0,
+            origin: window.location.origin
+          },
+          events: {
+            onStateChange: (event: any) => {
+              if (event.data === window.YT.PlayerState.PLAYING) {
+                startTracking();
+              } else {
+                stopTracking();
+              }
+            },
+            onError: (event: any) => {
+              console.error("YouTube Player Error:", event.data);
+              setError("The YouTube video failed to load. It may be private or restricted.");
+              setPlayerState(PlayerState.ERROR);
+            }
+          }
+        });
+      }
+      setPlayerState(PlayerState.PLAYING);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'An error occurred while processing the request.');
+      setPlayerState(PlayerState.ERROR);
+    }
+  };
+
+  // Synchronize active lyric line
   useEffect(() => {
     if (!songData) return;
 
@@ -119,7 +154,7 @@ const App: React.FC = () => {
     }
   }, [currentTime, songData, activeLineIndex]);
 
-  // Scroll logic
+  // Handle automatic scrolling
   useEffect(() => {
     if (activeLineIndex !== -1 && lyricsContainerRef.current) {
       const activeElement = lyricsContainerRef.current.children[activeLineIndex] as HTMLElement;
@@ -139,7 +174,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-indigo-500/30">
-      {/* Header & Search */}
       <header className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 p-4">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-4">
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -158,12 +192,12 @@ const App: React.FC = () => {
               type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="Paste YouTube Link (e.g., https://www.youtube.com/watch?v=...)"
+              placeholder="Paste YouTube Link"
               className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
             />
             <button
               type="submit"
-              disabled={playerState === PlayerState.LOADING}
+              disabled={playerState === PlayerState.LOADING || !isApiReady}
               className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap"
             >
               {playerState === PlayerState.LOADING ? (
@@ -173,14 +207,13 @@ const App: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               )}
-              Search & Play
+              {isApiReady ? 'Search & Play' : 'Initializing...'}
             </button>
           </form>
         </div>
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full flex flex-col lg:flex-row gap-6 p-6">
-        {/* Left Side: Video Player */}
         <div className="w-full lg:w-[45%] flex flex-col gap-4">
           <div className="aspect-video bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 relative group">
             {playerState === PlayerState.IDLE && (
@@ -189,7 +222,7 @@ const App: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p>Enter a YouTube link above to start the magic.</p>
+                <p>Paste a YouTube link above to begin the magic.</p>
               </div>
             )}
             <div id="youtube-player" className="w-full h-full"></div>
@@ -213,13 +246,12 @@ const App: React.FC = () => {
               <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
               <div className="text-slate-400 text-center max-w-xs">
                 <p className="font-medium text-white mb-1">Gemini is listening...</p>
-                <p className="text-sm">Identifying song, generating romanization, and translating lyrics.</p>
+                <p className="text-sm">Identifying lyrics, generating pronunciation, and translating to Chinese.</p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Right Side: Lyrics List */}
         <div className="flex-1 h-[calc(100vh-200px)] min-h-[400px] flex flex-col">
           <div 
             ref={lyricsContainerRef}
@@ -235,7 +267,7 @@ const App: React.FC = () => {
               ))
             ) : (
               <div className="h-full flex items-center justify-center text-slate-600 italic">
-                {playerState === PlayerState.LOADING ? 'Fetching synchronized lyrics...' : 'Lyrics will appear here.'}
+                {playerState === PlayerState.LOADING ? 'Generating synchronized lyrics...' : 'Your lyrics will appear here.'}
               </div>
             )}
           </div>
@@ -243,7 +275,7 @@ const App: React.FC = () => {
       </main>
 
       <footer className="p-4 border-t border-slate-800 text-center text-slate-500 text-xs">
-        Powered by Gemini & YouTube • Built with React & Tailwind
+        Powered by Gemini 3 & YouTube • Built for high-performance music learning
       </footer>
     </div>
   );
