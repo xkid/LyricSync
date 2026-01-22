@@ -6,4 +6,4 @@
 
 [build]
   publish = "."
-  command = "echo 'Deploying LyricsSync AI'"
+  command = "echo 'Build successful'"
