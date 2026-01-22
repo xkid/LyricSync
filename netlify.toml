@@ -1,9 +1,8 @@
+[build]
+  publish = "."
+  command = "true"
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-[build]
-  publish = "."
-  command = "echo 'Deploying LyricsSync AI'"

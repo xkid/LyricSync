@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { fetchLyricsWithGemini } from './geminiService';
-import { SongData, PlayerState } from './types';
-import LyricLineView from './components/LyricLineView';
+import { fetchLyricsWithGemini } from './geminiService.ts';
+import { SongData, PlayerState } from './types.ts';
+import LyricLineView from './components/LyricLineView.tsx';
 
 declare global {
   interface Window {
@@ -29,7 +28,6 @@ const App: React.FC = () => {
   const timerRef = useRef<number | null>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
 
-  // Initialize YouTube API and load API Key
   useEffect(() => {
     const savedKey = localStorage.getItem('GEMINI_API_KEY');
     if (savedKey) {
@@ -173,12 +171,11 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-indigo-500/30">
-      {/* API Key Modal */}
       {showKeyModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full shadow-2xl">
             <h2 className="text-2xl font-bold mb-2">Gemini API Key Required</h2>
-            <p className="text-slate-400 mb-6 text-sm">To generate lyrics and translations, please enter your Google Gemini API key. It will be saved locally in your browser.</p>
+            <p className="text-slate-400 mb-6 text-sm">To generate lyrics and translations, please enter your Google Gemini API key. It is saved locally in your browser.</p>
             <input 
               type="password"
               value={tempKey}
