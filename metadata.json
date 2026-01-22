@@ -1,0 +1,5 @@
+{
+  "name": "LyricsSync AI",
+  "description": "A sophisticated YouTube player that uses Gemini to generate synchronized lyrics with English romanization and Chinese translations for an enhanced musical learning experience.",
+  "requestFramePermissions": []
+}
