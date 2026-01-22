@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LyricLine } from '../types.ts';
+import { LyricLine } from '../types';
 
 interface LyricLineViewProps {
   line: LyricLine;

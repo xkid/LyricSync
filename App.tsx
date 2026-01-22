@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { fetchLyricsWithGemini } from './geminiService.ts';
-import { SongData, PlayerState } from './types.ts';
-import LyricLineView from './components/LyricLineView.tsx';
+import { fetchLyricsWithGemini } from './geminiService';
+import { SongData, PlayerState } from './types';
+import LyricLineView from './components/LyricLineView';
 
 declare global {
   interface Window {
@@ -177,23 +177,23 @@ const App: React.FC = () => {
       {showKeyModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full shadow-2xl">
-            <h2 className="text-2xl font-bold mb-2 text-white">Gemini API Key</h2>
-            <p className="text-slate-400 mb-6 text-sm">Lyrics generation requires an API key. It is saved only in your local browser.</p>
+            <h2 className="text-2xl font-bold mb-2">Gemini API Key Required</h2>
+            <p className="text-slate-400 mb-6 text-sm">To generate lyrics and translations, please enter your Google Gemini API key. It will be saved locally in your browser.</p>
             <input 
               type="password"
               value={tempKey}
               onChange={(e) => setTempKey(e.target.value)}
-              placeholder="Paste your Gemini API Key here"
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 mb-4 focus:ring-2 focus:ring-indigo-500 outline-none text-white"
+              placeholder="Enter your API Key"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 mb-4 focus:ring-2 focus:ring-indigo-500 outline-none"
             />
             <button 
               onClick={saveApiKey}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-indigo-600/20"
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg transition-colors"
             >
-              Save & Start
+              Save Key & Start
             </button>
             <p className="mt-4 text-[10px] text-center text-slate-500 uppercase tracking-widest">
-              Get a key at <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-indigo-400 hover:underline">ai.google.dev</a>
+              Get your key at <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-indigo-400 hover:underline">ai.google.dev</a>
             </p>
           </div>
         </div>
@@ -227,7 +227,7 @@ const App: React.FC = () => {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="Paste YouTube Link"
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all text-white"
+              className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
             />
             <button
               type="submit"
@@ -241,7 +241,7 @@ const App: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               )}
-              {isApiReady ? 'Search & Play' : 'Initializing...'}
+              {isApiReady ? 'Search & Play' : 'Loading...'}
             </button>
           </form>
         </div>

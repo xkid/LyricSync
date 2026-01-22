@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { SongData } from "./types.ts";
+import { SongData } from "./types";
 
 export async function fetchLyricsWithGemini(videoUrl: string, apiKey: string): Promise<SongData> {
   if (!apiKey) {
